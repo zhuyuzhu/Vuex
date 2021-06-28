@@ -1,3 +1,5 @@
+[toc] 
+
 # Vuex3.0 官网文档理解
 
 >  官网地址：https://vuex.vuejs.org/zh/
@@ -398,4 +400,323 @@ actions: {
 
 
 ### 辅助函数mapState、mapGetters、mapMutations、mapActions
+
+#### mapState函数：
+
+传入一个对象，返回一个对象
+
+```js
+// 在单独构建的版本中辅助函数为 Vuex.mapState
+import { mapState } from 'vuex'
+
+export default {
+  // ...
+  computed: mapState({
+    // 箭头函数可使代码更简练
+    count: state => state.count,
+
+    // 传字符串参数 'count' 等同于 `state => state.count`
+    countAlias: 'count',
+
+    // 为了能够使用 `this` 获取局部状态，必须使用常规函数
+    countPlusLocalState (state) {
+      return state.count + this.localCount
+    }
+  })
+}
+```
+
+当映射的计算属性的名称与 state 的子节点名称相同时，我们也可以给 `mapState` 传一个字符串数组。
+
+```js
+computed: mapState([
+  // 映射 this.count 为 store.state.count
+  'count'
+])
+```
+
+对象展开运算符
+
+```js
+computed: {
+  localComputed () { /* ... */ },
+  // 使用对象展开运算符将此对象混入到外部对象中
+  ...mapState({
+    // ...
+  })
+}
+```
+
+#### mapGetters
+
+将 store 中的 getter 映射到局部计算属性：
+
+```js
+import { mapGetters } from 'vuex'
+
+export default {
+  // ...
+  computed: {
+  // 使用对象展开运算符将 getter 混入 computed 对象中
+    ...mapGetters([
+      'doneTodosCount',
+      'anotherGetter',
+      // ...
+    ])
+  }
+}
+```
+
+如果你想将一个 getter 属性另取一个名字，使用对象形式：
+
+```js
+...mapGetters({
+  // 把 `this.doneCount` 映射为 `this.$store.getters.doneTodosCount`
+  doneCount: 'doneTodosCount'
+})
+```
+
+#### mapMutations
+
+可以在组件中使用 `this.$store.commit('xxx')` 提交 mutation，或者使用 `mapMutations` 辅助函数将组件中的 methods 映射为 `store.commit` 调用（需要在根节点注入 `store`）
+
+```js
+import { mapMutations } from 'vuex'
+
+export default {
+  // ...
+  methods: {
+    ...mapMutations([
+      'increment', // 将 `this.increment()` 映射为 `this.$store.commit('increment')`
+
+      // `mapMutations` 也支持载荷：
+      'incrementBy' // 将 `this.incrementBy(amount)` 映射为 `this.$store.commit('incrementBy', amount)`
+    ]),
+    ...mapMutations({
+      add: 'increment' // 将 `this.add()` 映射为 `this.$store.commit('increment')`
+    })
+  }
+}
+```
+
+#### mapActions
+
+组件中使用 `this.$store.dispatch('xxx')` 分发 action，或者使用 `mapActions` 辅助函数将组件的 methods 映射为 `store.dispatch` 调用（需要先在根节点注入 `store`）
+
+```js
+import { mapActions } from 'vuex'
+
+export default {
+  // ...
+  methods: {
+    ...mapActions([
+      'increment', // 将 `this.increment()` 映射为 `this.$store.dispatch('increment')`
+
+      // `mapActions` 也支持载荷：
+      'incrementBy' // 将 `this.incrementBy(amount)` 映射为 `this.$store.dispatch('incrementBy', amount)`
+    ]),
+    ...mapActions({
+      add: 'increment' // 将 `this.add()` 映射为 `this.$store.dispatch('increment')`
+    })
+  }
+}
+```
+
+### 模块化store
+
+> 如果是模块化，store对象上的state、getters、mutations、actions要如何使用？模块中的state、getters、mutations、actions书写格式
+
+store中getters、mutations、接收的参数是state；而actions，接收的参数是context，等价于store。
+
+实例：
+
+```js
+const moduleA = {
+  state: {
+    count: 0,
+  },
+  getters: {
+    count10: state => 10*(state.count),
+    todo (state, getters) {
+      console.log(getters.count10)
+    }
+  },  
+  mutations: {
+    increment(state) {
+        state.count ++;
+    }
+  },
+  actions: {
+    increment(context) {
+      context.commit('increment')
+    }
+  }
+}
+
+const moduleB = {
+  state: () => ({ //模块的state可以是函数，在多处使用该模块时，具有独立性
+    firstName: 'yuzhu',
+    lastName: 'zhu'
+   }),
+  getters: {
+    fullName: (state, getters, rootState) => {//局部state,getters, 根节点状态。rootState可以获取所有的state
+      return state.firstName + state.lastName;
+    }
+  },
+  mutations: { 
+    changeFirstName (state) {//局部state
+      state.firstName = 'daya'
+    }
+   },
+  actions: { 
+    act ({ state, commit, rootState }) {//局部context多了一个属性：rootState，代表根节点状态
+
+    }
+   }
+}
+
+const store = new Vuex.Store({
+  modules: {//接收modules参数
+    a: moduleA,
+    b: moduleB
+  }
+})
+```
+
+
+
+```js
+this.$store.state.a.acount
+this.$store.state.b.firstName
+
+this.$store.getters.fullName //getters上有所有getter
+
+//局部模板中的mutation和action也是直接触发
+this.$store.commit('increment')
+this.$store.dispatch('act')
+```
+
+
+
+#### 命名空间：
+
+默认情况下，模块内部的 action、mutation 和 getter 是注册在**全局命名空间**的——这样使得多个模块能够对同一 mutation 或 action 作出响应。
+
+如果希望你的模块具有更高的封装度和复用性，你可以通过添加 `namespaced: true` 的方式使其成为带命名空间的模块。当模块被注册后，它的所有 getter、action 及 mutation 都会自动根据模块注册的路径调整命名。启用了命名空间的 getter 和 action 会收到局部化的 `getter`，`dispatch` 和 `commit`。例如：
+
+```js
+const store = new Vuex.Store({
+  modules: {
+    account: {
+      namespaced: true,
+
+      // 模块内容（module assets）
+      state: () => ({ ... }), // 模块内的状态已经是嵌套的了，使用 `namespaced` 属性不会对其产生影响
+      getters: {
+        isAdmin () { ... } // -> getters['account/isAdmin']
+      },
+      actions: {
+        login () { ... } // -> dispatch('account/login')
+      },
+      mutations: {
+        login () { ... } // -> commit('account/login')
+      },
+
+      // 嵌套模块
+      modules: {
+        // 继承父模块的命名空间
+        myPage: {
+          state: () => ({ ... }),
+          getters: {
+            profile () { ... } // -> getters['account/profile']
+          }
+        },
+
+        // 进一步嵌套命名空间
+        posts: {
+          namespaced: true,
+
+          state: () => ({ ... }),
+          getters: {
+            popular () { ... } // -> getters['account/posts/popular']
+          }
+        }
+      }
+    }
+  }
+})
+```
+
+触发方式是，添加`/`
+
+```js
+this.$store.getters['b/fullName']
+
+this.$store.commit('b/changeFirstName')
+
+this.$store.dispatch('b/act')
+```
+
+
+
+如果你希望使用全局 state 和 getter，`rootState` 和 `rootGetters` 会作为第三和第四参数传入 getter，也会通过 `context` 对象的属性传入 action。
+
+若需要在全局命名空间内分发 action 或提交 mutation，将 `{ root: true }` 作为第三参数传给 `dispatch` 或 `commit` 即可。
+
+```js
+modules: {
+  foo: {
+    namespaced: true,
+
+    getters: {
+      // 在这个模块的 getter 中，`getters` 被局部化了
+      // 你可以使用 getter 的第四个参数来调用 `rootGetters`
+      someGetter (state, getters, rootState, rootGetters) {
+        getters.someOtherGetter // -> 'foo/someOtherGetter'
+        rootGetters.someOtherGetter // -> 'someOtherGetter'
+      },
+      someOtherGetter: state => { ... }
+    },
+
+    actions: {
+      // 在这个模块中， dispatch 和 commit 也被局部化了
+      // 他们可以接受 `root` 属性以访问根 dispatch 或 commit
+      someAction ({ dispatch, commit, getters, rootGetters }) {
+        getters.someGetter // -> 'foo/someGetter'
+        rootGetters.someGetter // -> 'someGetter'
+
+        dispatch('someOtherAction') // -> 'foo/someOtherAction'
+        dispatch('someOtherAction', null, { root: true }) // -> 'someOtherAction'
+
+        commit('someMutation') // -> 'foo/someMutation'
+        commit('someMutation', null, { root: true }) // -> 'someMutation'
+      },
+      someOtherAction (ctx, payload) { ... }
+    }
+  }
+}
+```
+
+在模块中，可以访问根state、根getters、已经根的commit和dispatch
+
+```js
+const store = new Vuex.Store({
+  modules: {
+    a: moduleA,
+    b: moduleB
+  },
+  state: {
+    globalCount: 100
+  },
+  getters: {
+    global10count (state) {
+      return state.globalCount * 10;
+    }
+  }
+})
+```
+
+命名空间：
+
+https://vuex.vuejs.org/zh/guide/modules.html#%E5%91%BD%E5%90%8D%E7%A9%BA%E9%97%B4
 
