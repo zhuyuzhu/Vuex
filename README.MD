@@ -133,7 +133,7 @@ store.getters.getTodoById(2) // -> { id: 2, text: '...', done: false }
 
 getters，为什么叫getters，就在于有getter特性：
 
-每次访问getters内的属性时，就会执行对应的函数体。——有别于computed
+当第一次访问getters内的某个getter时，就会执行对应的函数体。——有别于computed，初始化时，默认执行一次。
 
 比如：
 
